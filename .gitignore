@@ -1,0 +1,30 @@
+# Build
+build/
+cmake-build-*/
+
+# VS Code
+.vscode/
+
+# C/C++
+*.o
+*.obj
+*.exe
+*.out
+
+# Debug
+*.dSYM/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
