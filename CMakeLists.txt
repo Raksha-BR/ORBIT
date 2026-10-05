@@ -19,6 +19,7 @@ enable_testing()
 add_library(orbit_core
     src/core/ApplicationStateMachine.cpp
     src/matching/MatchingEngine.cpp
+    src/jobs/JobParser.cpp
 )
 
 target_include_directories(orbit_core
@@ -69,6 +70,20 @@ target_link_libraries(orbit_matching_tests
 )
 
 # ============================================================
+# Job Intelligence Tests
+# ============================================================
+
+add_executable(orbit_job_tests
+    tests/jobs/JobParserTest.cpp
+)
+
+target_link_libraries(orbit_job_tests
+    PRIVATE
+        orbit_core
+        GTest::gtest_main
+)
+
+# ============================================================
 # Test Discovery
 # ============================================================
 
@@ -76,3 +91,4 @@ include(GoogleTest)
 
 gtest_discover_tests(orbit_core_tests)
 gtest_discover_tests(orbit_matching_tests)
+gtest_discover_tests(orbit_job_tests)
