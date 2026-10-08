@@ -16,23 +16,35 @@ enable_testing()
 # ORBIT Core Library
 # ============================================================
 
+find_package(PostgreSQL REQUIRED)
+
 add_library(orbit_core
     src/core/ApplicationStateMachine.cpp
+
     src/matching/MatchingEngine.cpp
 
     src/jobs/JobParser.cpp
-
     src/jobs/requirements/RequirementExtractor.cpp
     src/jobs/requirements/RequirementNormalizer.cpp
 
     src/candidate/CandidateFactStore.cpp
 
     src/applications/AnswerEngine.cpp
+
+    src/storage/InMemoryCandidateFactRepository.cpp
+
+    src/storage/postgres/PostgresConnection.cpp
+    src/storage/postgres/PostgresCandidateFactRepository.cpp
 )
 
 target_include_directories(orbit_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(orbit_core
+    PUBLIC
+        PostgreSQL::PostgreSQL
 )
 
 # ============================================================
@@ -134,6 +146,31 @@ target_link_libraries(orbit_answer_tests
 )
 
 # ============================================================
+# Storage Tests
+# ============================================================
+
+add_executable(orbit_storage_tests
+    tests/storage/InMemoryCandidateFactRepositoryTest.cpp
+)
+
+target_link_libraries(orbit_storage_tests
+    PRIVATE
+        orbit_core
+        GTest::gtest_main
+)
+
+add_executable(orbit_postgres_tests
+    tests/storage/PostgresConnectionTest.cpp
+)
+
+target_link_libraries(orbit_postgres_tests
+    PRIVATE
+        orbit_core
+        GTest::gtest_main
+)
+
+
+# ============================================================
 # Test Discovery
 # ============================================================
 
@@ -145,3 +182,5 @@ gtest_discover_tests(orbit_job_tests)
 gtest_discover_tests(orbit_requirement_tests)
 gtest_discover_tests(orbit_candidate_tests)
 gtest_discover_tests(orbit_answer_tests)
+gtest_discover_tests(orbit_storage_tests)
+gtest_discover_tests(orbit_postgres_tests)
