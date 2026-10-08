@@ -26,6 +26,8 @@ add_library(orbit_core
     src/jobs/requirements/RequirementNormalizer.cpp
 
     src/candidate/CandidateFactStore.cpp
+
+    src/applications/AnswerEngine.cpp
 )
 
 target_include_directories(orbit_core
@@ -118,6 +120,20 @@ target_link_libraries(orbit_candidate_tests
 )
 
 # ============================================================
+# Application Answer Engine Tests
+# ============================================================
+
+add_executable(orbit_answer_tests
+    tests/applications/AnswerEngineTest.cpp
+)
+
+target_link_libraries(orbit_answer_tests
+    PRIVATE
+        orbit_core
+        GTest::gtest_main
+)
+
+# ============================================================
 # Test Discovery
 # ============================================================
 
@@ -128,4 +144,4 @@ gtest_discover_tests(orbit_matching_tests)
 gtest_discover_tests(orbit_job_tests)
 gtest_discover_tests(orbit_requirement_tests)
 gtest_discover_tests(orbit_candidate_tests)
-
+gtest_discover_tests(orbit_answer_tests)
