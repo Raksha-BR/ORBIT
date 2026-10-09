@@ -1,6 +1,30 @@
 #include "PostgresCandidateFactRepository.h"
 
+#include <string>
+
 namespace orbit {
+
+namespace {
+
+std::string confidence_to_string(
+    FactConfidence confidence
+) {
+    switch (confidence) {
+
+        case FactConfidence::Verified:
+            return "verified";
+
+        case FactConfidence::Derived:
+            return "derived";
+
+        case FactConfidence::Uncertain:
+            return "uncertain";
+    }
+
+    return "uncertain";
+}
+
+} // namespace
 
 PostgresCandidateFactRepository::
     PostgresCandidateFactRepository(
@@ -12,24 +36,59 @@ PostgresCandidateFactRepository::
 void PostgresCandidateFactRepository::save(
     const CandidateFact& fact
 ) {
-    // Database implementation will be added
-    // in the next persistence slice.
-    (void)fact;
+    connection_.execute(
+        R"SQL(
+            INSERT INTO candidate_facts (
+                fact_key,
+                fact_value,
+                confidence
+            )
+            VALUES ($1, $2, $3)
+        )SQL",
+        {
+            fact.key,
+            fact.value,
+            confidence_to_string(fact.confidence)
+        }
+    );
 }
 
 std::optional<CandidateFact>
 PostgresCandidateFactRepository::find(
     const std::string& key
 ) const {
-    (void)key;
+    const auto rows = connection_.query(
+        R"SQL(
+            SELECT
+                fact_key,
+                fact_value,
+                confidence
+            FROM candidate_facts
+            WHERE fact_key = $1
+            ORDER BY id
+            LIMIT 1
+        )SQL",
+        {key}
+    );
 
-    return std::nullopt;
-}
+    if (rows.empty()) {
+        return std::nullopt;
+    }
 
-std::vector<CandidateFact>
-PostgresCandidateFactRepository::find_all()
-    const {
-    return {};
+    CandidateFact fact;
+
+    fact.key = rows[0][0];
+    fact.value = rows[0][1];
+
+    if (rows[0][2] == "verified") {
+        fact.confidence = FactConfidence::Verified;
+    } else if (rows[0][2] == "derived") {
+        fact.confidence = FactConfidence::Derived;
+    } else {
+        fact.confidence = FactConfidence::Uncertain;
+    }
+
+    return fact;
 }
 
 } // namespace orbit

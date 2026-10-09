@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace orbit {
 
@@ -24,6 +25,16 @@ public:
     void execute(
         const std::string& sql
     );
+
+    void execute(
+        const std::string& sql,
+        const std::vector<std::string>& parameters
+    );
+
+    std::vector<std::vector<std::string>> query(
+        const std::string& sql,
+        const std::vector<std::string>& parameters = {}
+    ) const;
 
 private:
     struct Impl;

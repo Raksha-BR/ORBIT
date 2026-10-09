@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "storage/postgres/PostgresConnection.h"
+#include "storage/postgres/PostgresSchema.h"
 
 namespace orbit {
 
@@ -13,6 +14,8 @@ TEST(PostgresConnectionTest, ConnectsToDatabase) {
             "user=orbit_user "
             "password=orbit_dev_password"
         );
+
+        PostgresSchema::initialize(connection);
 
         connection.execute(
             "SELECT 1"

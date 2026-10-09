@@ -34,6 +34,7 @@ add_library(orbit_core
     src/storage/InMemoryCandidateFactRepository.cpp
 
     src/storage/postgres/PostgresConnection.cpp
+    src/storage/postgres/PostgresSchema.cpp
     src/storage/postgres/PostgresCandidateFactRepository.cpp
 )
 
