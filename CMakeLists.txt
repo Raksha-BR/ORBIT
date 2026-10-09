@@ -162,6 +162,7 @@ target_link_libraries(orbit_storage_tests
 
 add_executable(orbit_postgres_tests
     tests/storage/PostgresConnectionTest.cpp
+    tests/storage/PostgresCandidateFactRepositoryTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests

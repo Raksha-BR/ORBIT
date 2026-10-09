@@ -91,4 +91,37 @@ PostgresCandidateFactRepository::find(
     return fact;
 }
 
+std::vector<CandidateFact>
+PostgresCandidateFactRepository::find_all() const {
+    const auto rows = connection_.query(
+        R"SQL(
+            SELECT fact_key, fact_value, confidence
+            FROM candidate_facts
+            ORDER BY id
+        )SQL"
+    );
+
+    std::vector<CandidateFact> facts;
+    facts.reserve(rows.size());
+
+    for (const auto& row : rows) {
+        CandidateFact fact;
+
+        fact.key = row[0];
+        fact.value = row[1];
+
+        if (row[2] == "verified") {
+            fact.confidence = FactConfidence::Verified;
+        } else if (row[2] == "derived") {
+            fact.confidence = FactConfidence::Derived;
+        } else {
+            fact.confidence = FactConfidence::Uncertain;
+        }
+
+        facts.push_back(fact);
+    }
+
+    return facts;
+}
+
 } // namespace orbit
