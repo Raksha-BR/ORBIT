@@ -20,6 +20,20 @@ void PostgresSchema::initialize(
                 created_at TIMESTAMPTZ NOT NULL
                     DEFAULT CURRENT_TIMESTAMP
             );
+
+        )SQL"
+    );
+        connection.execute(
+        R"SQL(
+            CREATE TABLE IF NOT EXISTS applications (
+                id BIGINT PRIMARY KEY,
+                candidate_id BIGINT NOT NULL,
+                job_id BIGINT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
+                applied_at TIMESTAMPTZ,
+                last_activity_at TIMESTAMPTZ
+            );
         )SQL"
     );
 }

@@ -20,22 +20,17 @@ find_package(PostgreSQL REQUIRED)
 
 add_library(orbit_core
     src/core/ApplicationStateMachine.cpp
-
     src/matching/MatchingEngine.cpp
-
     src/jobs/JobParser.cpp
     src/jobs/requirements/RequirementExtractor.cpp
     src/jobs/requirements/RequirementNormalizer.cpp
-
     src/candidate/CandidateFactStore.cpp
-
     src/applications/AnswerEngine.cpp
-
     src/storage/InMemoryCandidateFactRepository.cpp
-
     src/storage/postgres/PostgresConnection.cpp
     src/storage/postgres/PostgresSchema.cpp
     src/storage/postgres/PostgresCandidateFactRepository.cpp
+    src/storage/postgres/PostgresApplicationRepository.cpp
 )
 
 target_include_directories(orbit_core
@@ -163,6 +158,7 @@ target_link_libraries(orbit_storage_tests
 add_executable(orbit_postgres_tests
     tests/storage/PostgresConnectionTest.cpp
     tests/storage/PostgresCandidateFactRepositoryTest.cpp
+    tests/storage/PostgresApplicationRepositoryTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests
@@ -170,7 +166,6 @@ target_link_libraries(orbit_postgres_tests
         orbit_core
         GTest::gtest_main
 )
-
 
 # ============================================================
 # Test Discovery
