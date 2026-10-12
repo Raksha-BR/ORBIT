@@ -31,6 +31,8 @@ add_library(orbit_core
     src/storage/postgres/PostgresSchema.cpp
     src/storage/postgres/PostgresCandidateFactRepository.cpp
     src/storage/postgres/PostgresApplicationRepository.cpp
+    src/storage/postgres/PostgresApplicationEventRepository.cpp
+    src/applications/ApplicationWorkflowService.cpp
 )
 
 target_include_directories(orbit_core
@@ -159,6 +161,7 @@ add_executable(orbit_postgres_tests
     tests/storage/PostgresConnectionTest.cpp
     tests/storage/PostgresCandidateFactRepositoryTest.cpp
     tests/storage/PostgresApplicationRepositoryTest.cpp
+    tests/storage/PostgresApplicationEventRepositoryTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests
