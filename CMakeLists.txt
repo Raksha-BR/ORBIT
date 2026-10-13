@@ -65,6 +65,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(orbit_core_tests
     tests/core/ApplicationStateMachineTest.cpp
+    tests/applications/ApplicationWorkflowServiceTest.cpp
 )
 
 target_link_libraries(orbit_core_tests
