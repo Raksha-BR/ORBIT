@@ -1,4 +1,7 @@
+
 #pragma once
+
+#include "../ITransactionManager.h"
 
 #include <memory>
 #include <string>
@@ -6,7 +9,7 @@
 
 namespace orbit {
 
-class PostgresConnection {
+class PostgresConnection : public ITransactionManager {
 public:
     explicit PostgresConnection(
         const std::string& connection_string
@@ -35,6 +38,14 @@ public:
         const std::string& sql,
         const std::vector<std::string>& parameters = {}
     ) const;
+
+    void begin_transaction();
+    void commit_transaction();
+    void rollback_transaction();
+
+    void begin() override;
+    void commit() override;
+    void rollback() noexcept override;
 
 private:
     struct Impl;

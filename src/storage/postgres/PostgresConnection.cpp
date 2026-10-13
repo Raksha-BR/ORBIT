@@ -165,4 +165,32 @@ PostgresConnection::query(
     return rows;
 }
 
+void PostgresConnection::begin_transaction() {
+    execute("BEGIN");
+}
+
+void PostgresConnection::commit_transaction() {
+    execute("COMMIT");
+}
+
+void PostgresConnection::rollback_transaction() {
+    execute("ROLLBACK");
+}
+
+void PostgresConnection::begin() {
+    begin_transaction();
+}
+
+void PostgresConnection::commit() {
+    commit_transaction();
+}
+
+void PostgresConnection::rollback() noexcept {
+    try {
+        rollback_transaction();
+    } catch (...) {
+        // Preserve the original exception during error recovery.
+    }
+}
+
 } // namespace orbit

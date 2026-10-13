@@ -1,5 +1,6 @@
 #include "ApplicationWorkflowService.h"
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -42,48 +43,58 @@ std::string status_to_string(ApplicationStatus status) {
 
 } // namespace
 
+
 ApplicationWorkflowService::ApplicationWorkflowService(
     IApplicationRepository& application_repository,
-    IApplicationEventRepository& event_repository
+    IApplicationEventRepository& event_repository,
+    ITransactionManager& transaction_manager
 )
     : application_repository_(application_repository),
-      event_repository_(event_repository) {
+      event_repository_(event_repository),
+      transaction_manager_(transaction_manager) {
 }
+
 
 void ApplicationWorkflowService::transition(
     ApplicationId application_id,
     ApplicationStatus new_status
 ) {
-    auto application =
-        application_repository_.find(application_id);
+    transaction_manager_.begin();
 
-    if (!application.has_value()) {
-        throw std::runtime_error(
-            "Application not found: " +
-            std::to_string(application_id)
-        );
+    try {
+        auto application =
+            application_repository_.find(application_id);
+
+        if (!application.has_value()) {
+            throw std::runtime_error(
+                "Application not found: " +
+                std::to_string(application_id)
+            );
+        }
+
+        const auto previous_status = application->status;
+
+        state_machine_.transition(*application, new_status);
+
+        application_repository_.save(*application);
+
+        ApplicationEvent event{
+            .application_id = application_id,
+            .event_type = "STATUS_CHANGED",
+            .description =
+                status_to_string(previous_status) +
+                " -> " +
+                status_to_string(new_status),
+            .occurred_at = std::chrono::system_clock::now()
+        };
+
+        event_repository_.save(event);
+
+        transaction_manager_.commit();
+    } catch (...) {
+        transaction_manager_.rollback();
+        throw;
     }
-
-    const auto previous_status = application->status;
-
-    // Validates the transition and updates timestamps.
-    state_machine_.transition(*application, new_status);
-
-    // Persist the new application state.
-    application_repository_.save(*application);
-
-    // Record the transition in the application's timeline.
-    ApplicationEvent event{
-        .application_id = application_id,
-        .event_type = "STATUS_CHANGED",
-        .description =
-            status_to_string(previous_status) +
-            " -> " +
-            status_to_string(new_status),
-        .occurred_at = std::chrono::system_clock::now()
-    };
-
-    event_repository_.save(event);
 }
 
 } // namespace orbit

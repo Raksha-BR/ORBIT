@@ -3,13 +3,11 @@
 
 #include "applications/ApplicationWorkflowService.h"
 
-#include <algorithm>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
 namespace orbit {
-
 namespace {
 
 class FakeApplicationRepository : public IApplicationRepository {
@@ -18,9 +16,7 @@ public:
         applications_[application.id] = application;
     }
 
-    std::optional<Application> find(
-        ApplicationId id
-    ) const override {
+    std::optional<Application> find(ApplicationId id) const override {
         const auto it = applications_.find(id);
 
         if (it == applications_.end()) {
@@ -70,12 +66,32 @@ private:
     std::vector<ApplicationEvent> events_;
 };
 
+class FakeTransactionManager : public ITransactionManager {
+public:
+    void begin() override {
+        began = true;
+    }
+
+    void commit() override {
+        committed = true;
+    }
+
+    void rollback() noexcept override {
+        rolled_back = true;
+    }
+
+    bool began{false};
+    bool committed{false};
+    bool rolled_back{false};
+};
+
 TEST(
     ApplicationWorkflowServiceTest,
     ValidTransitionUpdatesStatusAndRecordsEvent
 ) {
     FakeApplicationRepository applications;
     FakeApplicationEventRepository events;
+    FakeTransactionManager transaction;
 
     Application application;
     application.id = 101;
@@ -85,20 +101,16 @@ TEST(
 
     applications.save(application);
 
-    ApplicationWorkflowService workflow(applications, events);
-
-    workflow.transition(
-        101,
-        ApplicationStatus::Shortlisted
+    ApplicationWorkflowService workflow(
+        applications, events, transaction
     );
+
+    workflow.transition(101, ApplicationStatus::Shortlisted);
 
     const auto updated = applications.find(101);
 
     ASSERT_TRUE(updated.has_value());
-    EXPECT_EQ(
-        updated->status,
-        ApplicationStatus::Shortlisted
-    );
+    EXPECT_EQ(updated->status, ApplicationStatus::Shortlisted);
 
     const auto timeline = events.find_by_application(101);
 
@@ -108,6 +120,10 @@ TEST(
         timeline[0].description,
         "DISCOVERED -> SHORTLISTED"
     );
+
+    EXPECT_TRUE(transaction.began);
+    EXPECT_TRUE(transaction.committed);
+    EXPECT_FALSE(transaction.rolled_back);
 }
 
 TEST(
@@ -116,6 +132,7 @@ TEST(
 ) {
     FakeApplicationRepository applications;
     FakeApplicationEventRepository events;
+    FakeTransactionManager transaction;
 
     Application application;
     application.id = 102;
@@ -123,7 +140,9 @@ TEST(
 
     applications.save(application);
 
-    ApplicationWorkflowService workflow(applications, events);
+    ApplicationWorkflowService workflow(
+        applications, events, transaction
+    );
 
     EXPECT_THROW(
         workflow.transition(102, ApplicationStatus::Interview),
@@ -133,11 +152,12 @@ TEST(
     const auto unchanged = applications.find(102);
 
     ASSERT_TRUE(unchanged.has_value());
-    EXPECT_EQ(
-        unchanged->status,
-        ApplicationStatus::Discovered
-    );
+    EXPECT_EQ(unchanged->status, ApplicationStatus::Discovered);
     EXPECT_TRUE(events.find_by_application(102).empty());
+
+    EXPECT_TRUE(transaction.began);
+    EXPECT_FALSE(transaction.committed);
+    EXPECT_TRUE(transaction.rolled_back);
 }
 
 TEST(
@@ -146,8 +166,11 @@ TEST(
 ) {
     FakeApplicationRepository applications;
     FakeApplicationEventRepository events;
+    FakeTransactionManager transaction;
 
-    ApplicationWorkflowService workflow(applications, events);
+    ApplicationWorkflowService workflow(
+        applications, events, transaction
+    );
 
     EXPECT_THROW(
         workflow.transition(999, ApplicationStatus::Shortlisted),
@@ -155,6 +178,10 @@ TEST(
     );
 
     EXPECT_TRUE(events.find_by_application(999).empty());
+
+    EXPECT_TRUE(transaction.began);
+    EXPECT_FALSE(transaction.committed);
+    EXPECT_TRUE(transaction.rolled_back);
 }
 
 TEST(
@@ -163,6 +190,7 @@ TEST(
 ) {
     FakeApplicationRepository applications;
     FakeApplicationEventRepository events;
+    FakeTransactionManager transaction;
 
     Application application;
     application.id = 103;
@@ -170,12 +198,15 @@ TEST(
 
     applications.save(application);
 
-    ApplicationWorkflowService workflow(applications, events);
+    ApplicationWorkflowService workflow(
+        applications, events, transaction
+    );
 
     workflow.transition(103, ApplicationStatus::Shortlisted);
     workflow.transition(103, ApplicationStatus::Preparing);
 
     const auto updated = applications.find(103);
+
     ASSERT_TRUE(updated.has_value());
     EXPECT_EQ(updated->status, ApplicationStatus::Preparing);
 
@@ -190,8 +221,11 @@ TEST(
         timeline[1].description,
         "SHORTLISTED -> PREPARING"
     );
+
+    EXPECT_TRUE(transaction.began);
+    EXPECT_TRUE(transaction.committed);
+    EXPECT_FALSE(transaction.rolled_back);
 }
 
 } // namespace
-
 } // namespace orbit
