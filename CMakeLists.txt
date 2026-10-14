@@ -33,6 +33,7 @@ add_library(orbit_core
     src/storage/postgres/PostgresApplicationRepository.cpp
     src/storage/postgres/PostgresApplicationEventRepository.cpp
     src/applications/ApplicationWorkflowService.cpp
+    src/storage/InMemoryJobRepository.cpp
 )
 
 target_include_directories(orbit_core
@@ -66,6 +67,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(orbit_core_tests
     tests/core/ApplicationStateMachineTest.cpp
     tests/applications/ApplicationWorkflowServiceTest.cpp
+    tests/storage/InMemoryJobRepositoryTest.cpp
 )
 
 target_link_libraries(orbit_core_tests
