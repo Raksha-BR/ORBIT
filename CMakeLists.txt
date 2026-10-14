@@ -163,6 +163,7 @@ add_executable(orbit_postgres_tests
     tests/storage/PostgresCandidateFactRepositoryTest.cpp
     tests/storage/PostgresApplicationRepositoryTest.cpp
     tests/storage/PostgresApplicationEventRepositoryTest.cpp
+    tests/storage/PostgresApplicationWorkflowTransactionTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests
