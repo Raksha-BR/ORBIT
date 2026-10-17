@@ -36,6 +36,34 @@ void PostgresSchema::initialize(
             );
         )SQL"
     );
+    
+    connection.execute(
+        R"SQL(
+            CREATE TABLE IF NOT EXISTS jobs (
+                id BIGINT PRIMARY KEY,
+                title TEXT NOT NULL,
+                company TEXT NOT NULL,
+                location TEXT NOT NULL,
+                salary TEXT,
+                minimum_years_experience INTEGER,
+                description TEXT NOT NULL DEFAULT '',
+                application_url TEXT NOT NULL DEFAULT ''
+            );
+        )SQL"
+    );
+
+    connection.execute(
+        R"SQL(
+            CREATE TABLE IF NOT EXISTS job_skills (
+                job_id BIGINT NOT NULL
+                    REFERENCES jobs(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL,
+                skill TEXT NOT NULL,
+                PRIMARY KEY (job_id, position)
+            );
+        )SQL"
+    );
+
     connection.execute(
         R"SQL(
             CREATE TABLE IF NOT EXISTS application_events (

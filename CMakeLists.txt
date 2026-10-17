@@ -35,6 +35,7 @@ add_library(orbit_core
     src/applications/ApplicationWorkflowService.cpp
     src/storage/InMemoryJobRepository.cpp
     src/jobs/JobDeduplicator.cpp
+    src/storage/postgres/PostgresJobRepository.cpp
 )
 
 target_include_directories(orbit_core
@@ -97,7 +98,7 @@ target_link_libraries(orbit_matching_tests
 
 add_executable(orbit_job_tests
     tests/jobs/JobParserTest.cpp
-    tests/jobs/JobDeduplicatorTest.cpp
+    tests/jobs/JobDeduplicatorTest.cpp 
 )
 
 target_link_libraries(orbit_job_tests
@@ -168,6 +169,7 @@ add_executable(orbit_postgres_tests
     tests/storage/PostgresApplicationRepositoryTest.cpp
     tests/storage/PostgresApplicationEventRepositoryTest.cpp
     tests/storage/PostgresApplicationWorkflowTransactionTest.cpp
+    tests/storage/PostgresJobRepositoryTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests
