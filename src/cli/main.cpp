@@ -7,6 +7,8 @@
 #include "storage/postgres/PostgresSchema.h"
 #include "jobs/JobSourceService.h"
 #include "jobs/MockJobSource.h"
+#include "jobs/RemotiveJobSource.h"
+#include "jobs/JobRelevanceScorer.h"
 
 #include <algorithm>
 #include <cctype>
@@ -129,7 +131,9 @@ void print_usage() {
         << "minimum_years_experience,skills,description,"
         << "application_url,source_name,external_job_id,original_url\n"
         << "Use | between skills, for example: C++|Python|SQL\n"
-        << "  orbit jobs collect --source mock\n";
+        << "  orbit jobs collect --source mock\n"
+        << "  orbit jobs collect --source remotive\n"
+        << "  orbit jobs rank\n";
 }
 
 void print_job(const orbit::Job& job) {
@@ -347,6 +351,85 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        
+        if (action == "rank") {
+            const auto jobs = search_service.get_all_jobs();
+
+            if (jobs.empty()) {
+                std::cout << "No jobs found. Collect or import jobs first.\n";
+                return 0;
+            }
+
+            orbit::JobRelevanceScorer scorer;
+
+            std::vector<std::pair<orbit::Job, orbit::JobRelevanceScore>>
+                ranked_jobs;
+
+            ranked_jobs.reserve(jobs.size());
+
+            for (const auto& job : jobs) {
+                ranked_jobs.emplace_back(job, scorer.score(job));
+            }
+
+            std::stable_sort(
+                ranked_jobs.begin(),
+                ranked_jobs.end(),
+                [](const auto& left, const auto& right) {
+                    return left.second.score > right.second.score;
+                }
+            );
+
+            std::cout << "ORBIT Job Relevance Ranking\n";
+            std::cout << "===========================\n\n";
+
+            for (std::size_t i = 0; i < ranked_jobs.size(); ++i) {
+                const auto& job = ranked_jobs[i].first;
+                const auto& relevance = ranked_jobs[i].second;
+
+                std::cout
+                    << (i + 1) << ". [" << relevance.score << "/100] "
+                    << job.title << '\n'
+                    << "   Company: "
+                    << (job.company.empty() ? "Unknown" : job.company)
+                    << '\n'
+                    << "   Location: "
+                    << (job.location.empty() ? "Unknown" : job.location)
+                    << '\n'
+                    << "   Salary: "
+                    << (job.salary.has_value()
+                            ? *job.salary
+                            : "Not specified")
+                    << '\n'
+                    << "   Experience: ";
+
+                if (job.minimum_years_experience.has_value()) {
+                    std::cout
+                        << *job.minimum_years_experience << " year(s)";
+                } else {
+                    std::cout << "Not specified";
+                }
+
+                std::cout << "\n   Reasons:\n";
+
+                for (const auto& reason : relevance.reasons) {
+                    std::cout << "     - " << reason << '\n';
+                }
+
+                if (!job.application_url.empty()) {
+                    std::cout
+                        << "   Apply: " << job.application_url << '\n';
+                } else if (!job.original_url.empty()) {
+                    std::cout
+                        << "   Apply: " << job.original_url << '\n';
+                }
+
+                std::cout << '\n';
+            }
+
+            return 0;
+        }
+
+
         if (action == "search") {
             std::string keyword;
 
@@ -413,6 +496,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+
         if (action == "import") {
             std::string file_path;
 
@@ -440,41 +524,49 @@ int main(int argc, char* argv[]) {
                 << imported << '\n';
 
             return 0;
-            
-            if (action == "collect") {
-                std::string source_name;
+        }
 
-                for (int i = 3; i + 1 < argc; ++i) {
-                    if (std::string(argv[i]) == "--source") {
-                        source_name = argv[i + 1];
-                        break;
-                    }
+        if (action == "collect") {
+            std::string source_name;
+
+            for (int i = 3; i + 1 < argc; ++i) {
+                if (std::string(argv[i]) == "--source") {
+                    source_name = argv[i + 1];
+                    break;
                 }
-
-                if (source_name != "mock") {
-                    std::cerr
-                        << "Error: supported source is --source mock\n";
-                    return 1;
-                }
-
-                orbit::MockJobSource source;
-                const auto result = source_service.collect(source);
-
-                if (!result.error.empty()) {
-                    std::cerr << "Collection failed: "
-                            << result.error << '\n';
-                    return 1;
-                }
-
-                std::cout
-                    << "Source: " << result.source_name << '\n'
-                    << "Fetched: " << result.fetched_count << '\n'
-                    << "New jobs saved: " << result.jobs.size() << '\n'
-                    << "Skipped as duplicates: "
-                    << result.rejected_count << '\n';
-
-                return 0;
             }
+
+            if (source_name != "mock" && source_name != "remotive") {
+                std::cerr
+                    << "Error: supported sources are mock and remotive\n";
+                return 1;
+            }
+
+            orbit::JobSourceResult result;
+
+            if (source_name == "mock") {
+                orbit::MockJobSource source;
+                result = source_service.collect(source);
+            } else {
+                orbit::RemotiveJobSource source;
+                result = source_service.collect(source);
+            }
+
+            if (!result.error.empty()) {
+                std::cerr
+                    << "Collection failed: "
+                    << result.error << '\n';
+                return 1;
+            }
+
+            std::cout
+                << "Source: " << result.source_name << '\n'
+                << "Fetched: " << result.fetched_count << '\n'
+                << "New jobs saved: " << result.jobs.size() << '\n'
+                << "Skipped as duplicates: "
+                << result.rejected_count << '\n';
+
+            return 0;
         }
 
         print_usage();
