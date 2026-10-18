@@ -250,8 +250,64 @@ JobRelevanceScore JobRelevanceScorer::score(const Job& job) const {
         }
     }
 
+    
+    // Cap unrelated roles so generic remote/technology keywords
+    // cannot make them appear to be strong SDE matches.
+    const bool unrelated_role = contains_any(title, {
+        "designer",
+        "recruiter",
+        "sales",
+        "account manager",
+        "project manager",
+        "marketing",
+        "writer",
+        "copywriter",
+        "office assistant",
+        "content reviewer"
+    });
+
+    if (unrelated_role && result.score > 15) {
+        result.score = 15;
+        result.reasons.push_back(
+            "Score capped at 15: title is outside the target SDE roles"
+        );
+    } else if (contains_any(title, {
+                   "service desk",
+                   "help desk",
+                   "desktop support",
+                   "it support",
+                   "technical support"
+               }) &&
+               result.score > 45) {
+        result.score = 45;
+        result.reasons.push_back(
+            "Score capped at 45: support role is not a clear SDE match"
+        );
+    }
+
+    // Seniority should limit ranking even when the description
+    // contains many relevant technologies.
+    if (contains_any(title, {
+            "staff engineer",
+            "principal engineer",
+            "engineering director",
+            "vice president",
+            "vp of engineering",
+            "senior",
+            "sr.",
+            "lead engineer",
+            "tech lead"
+        }) &&
+        result.score > 65) {
+        result.score = 65;
+        result.reasons.push_back(
+            "Score capped at 65: seniority may exceed the target level"
+        );
+    }
+
     result.score = std::clamp(result.score, 0, 100);
     return result;
+
 }
 
 } // namespace orbit

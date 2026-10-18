@@ -117,4 +117,39 @@ TEST(JobRelevanceScorerTest, ScoreStaysWithinZeroAndOneHundred) {
 }
 
 } // namespace
+
+TEST(JobRelevanceScorerTest, CapsUnrelatedRoles) {
+    JobRelevanceScorer scorer;
+
+    Job job = make_job(
+        "Freelance Writer",
+        "Worldwide",
+        "Remote work involving Python and C++ documentation"
+    );
+
+    job.skills = {"Python", "C++", "Linux"};
+
+    const auto result = scorer.score(job);
+
+    EXPECT_LE(result.score, 15);
+}
+
+TEST(JobRelevanceScorerTest, CapsSeniorRoles) {
+    JobRelevanceScorer scorer;
+
+    Job job = make_job(
+        "Senior Backend Engineer",
+        "Bengaluru",
+        "C++ Python distributed systems backend Linux REST API"
+    );
+
+    job.skills = {"C++", "Python", "Linux", "SQL"};
+    job.minimum_years_experience = 2;
+    job.salary = "25 LPA";
+
+    const auto result = scorer.score(job);
+
+    EXPECT_LE(result.score, 65);
+}
+
 } // namespace orbit
