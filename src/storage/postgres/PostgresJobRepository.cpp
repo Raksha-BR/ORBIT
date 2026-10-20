@@ -1,3 +1,4 @@
+
 #include "PostgresJobRepository.h"
 
 #include <algorithm>
@@ -39,6 +40,9 @@ Job job_from_row(const std::vector<std::string>& row) {
 
     job.description = row.at(6);
     job.application_url = row.at(7);
+    job.source_name = row.at(8);
+    job.external_job_id = row.at(9);
+    job.original_url = row.at(10);
 
     return job;
 }
@@ -52,7 +56,10 @@ constexpr const char* kSelectJobs = R"SQL(
         COALESCE(salary, ''),
         COALESCE(minimum_years_experience::TEXT, ''),
         description,
-        application_url
+        application_url,
+        COALESCE(source_name, ''),
+        COALESCE(external_job_id, ''),
+        COALESCE(original_url, '')
     FROM jobs
 )SQL";
 
@@ -111,17 +118,16 @@ void PostgresJobRepository::save(const Job& job) {
                     salary,
                     minimum_years_experience,
                     description,
-                    application_url
+                    application_url,
+                    source_name,
+                    external_job_id,
+                    original_url
                 )
                 VALUES (
-                    $1,
-                    $2,
-                    $3,
-                    $4,
+                    $1, $2, $3, $4,
                     NULLIF($5, ''),
                     NULLIF($6, '')::INTEGER,
-                    $7,
-                    $8
+                    $7, $8, $9, $10, $11
                 )
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
@@ -131,7 +137,10 @@ void PostgresJobRepository::save(const Job& job) {
                     minimum_years_experience =
                         EXCLUDED.minimum_years_experience,
                     description = EXCLUDED.description,
-                    application_url = EXCLUDED.application_url
+                    application_url = EXCLUDED.application_url,
+                    source_name = EXCLUDED.source_name,
+                    external_job_id = EXCLUDED.external_job_id,
+                    original_url = EXCLUDED.original_url
             )SQL",
             {
                 std::to_string(job.id),
@@ -141,7 +150,10 @@ void PostgresJobRepository::save(const Job& job) {
                 optional_string(job.salary),
                 optional_int(job.minimum_years_experience),
                 job.description,
-                job.application_url
+                job.application_url,
+                job.source_name,
+                job.external_job_id,
+                job.original_url
             }
         );
 
@@ -206,6 +218,46 @@ std::vector<Job> PostgresJobRepository::find_all() const {
 
     load_skills(connection_, jobs);
     return jobs;
+}
+
+Page<Job> PostgresJobRepository::find_page(
+    std::size_t offset,
+    std::size_t limit
+) const {
+    if (limit == 0 || limit > 100) {
+        throw std::invalid_argument(
+            "Page limit must be between 1 and 100"
+        );
+    }
+
+    const auto rows = connection_.query(
+        std::string(kSelectJobs) +
+            " ORDER BY id LIMIT $1 OFFSET $2",
+        {
+            std::to_string(limit + 1),
+            std::to_string(offset)
+        }
+    );
+
+    Page<Job> page;
+    page.offset = offset;
+    page.limit = limit;
+    page.has_more = rows.size() > limit;
+
+    const std::size_t count =
+        page.has_more ? limit : rows.size();
+
+    std::vector<Job> jobs;
+    jobs.reserve(count);
+
+    for (std::size_t i = 0; i < count; ++i) {
+        jobs.push_back(job_from_row(rows[i]));
+    }
+
+    load_skills(connection_, jobs);
+    page.items = std::move(jobs);
+
+    return page;
 }
 
 } // namespace orbit

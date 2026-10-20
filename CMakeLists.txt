@@ -18,6 +18,9 @@ enable_testing()
 
 find_package(PostgreSQL REQUIRED)
 
+find_package(CURL REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+
 add_library(orbit_core
     src/core/ApplicationStateMachine.cpp
     src/matching/MatchingEngine.cpp
@@ -36,6 +39,11 @@ add_library(orbit_core
     src/storage/InMemoryJobRepository.cpp
     src/jobs/JobDeduplicator.cpp
     src/storage/postgres/PostgresJobRepository.cpp
+    src/jobs/JobSearchService.cpp
+    src/jobs/JobSourceService.cpp
+    src/jobs/MockJobSource.cpp
+    src/jobs/RemotiveJobSource.cpp
+    src/jobs/JobRelevanceScorer.cpp
 )
 
 target_include_directories(orbit_core
@@ -46,7 +54,15 @@ target_include_directories(orbit_core
 target_link_libraries(orbit_core
     PUBLIC
         PostgreSQL::PostgreSQL
+        CURL::libcurl
+        nlohmann_json::nlohmann_json
 )
+
+add_executable(orbit_cli
+    src/cli/main.cpp
+)
+
+target_link_libraries(orbit_cli PRIVATE orbit_core)
 
 # ============================================================
 # GoogleTest
@@ -99,6 +115,7 @@ target_link_libraries(orbit_matching_tests
 add_executable(orbit_job_tests
     tests/jobs/JobParserTest.cpp
     tests/jobs/JobDeduplicatorTest.cpp 
+    tests/jobs/JobRelevanceScorerTest.cpp
 )
 
 target_link_libraries(orbit_job_tests
@@ -170,6 +187,7 @@ add_executable(orbit_postgres_tests
     tests/storage/PostgresApplicationEventRepositoryTest.cpp
     tests/storage/PostgresApplicationWorkflowTransactionTest.cpp
     tests/storage/PostgresJobRepositoryTest.cpp
+    tests/jobs/JobSearchServiceTest.cpp
 )
 
 target_link_libraries(orbit_postgres_tests

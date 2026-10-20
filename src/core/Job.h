@@ -22,6 +22,10 @@ struct Job {
 
     std::string description;
     std::string application_url;
+
+    std::string source_name;
+    std::string external_job_id;
+    std::string original_url;
 };
 
 } // namespace orbit

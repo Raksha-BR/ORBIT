@@ -47,8 +47,26 @@ void PostgresSchema::initialize(
                 salary TEXT,
                 minimum_years_experience INTEGER,
                 description TEXT NOT NULL DEFAULT '',
-                application_url TEXT NOT NULL DEFAULT ''
+                application_url TEXT NOT NULL DEFAULT '',
+                source_name TEXT NOT NULL DEFAULT '',
+                external_job_id TEXT NOT NULL DEFAULT '',
+                original_url TEXT NOT NULL DEFAULT '',
+                first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+        )SQL"
+    );
+
+        connection.execute(
+        R"SQL(
+            ALTER TABLE jobs
+                ADD COLUMN IF NOT EXISTS source_name TEXT NOT NULL DEFAULT '',
+                ADD COLUMN IF NOT EXISTS external_job_id TEXT NOT NULL DEFAULT '',
+                ADD COLUMN IF NOT EXISTS original_url TEXT NOT NULL DEFAULT '',
+                ADD COLUMN IF NOT EXISTS first_seen_at
+                    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS last_seen_at
+                    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
         )SQL"
     );
 
@@ -76,6 +94,22 @@ void PostgresSchema::initialize(
             );
         )SQL"
     );
+
+        connection.execute(
+        R"SQL(
+            CREATE INDEX IF NOT EXISTS idx_jobs_company
+                ON jobs (company);
+
+            CREATE INDEX IF NOT EXISTS idx_jobs_location
+                ON jobs (location);
+
+            CREATE INDEX IF NOT EXISTS idx_job_skills_skill
+                ON job_skills (skill);
+
+            CREATE INDEX IF NOT EXISTS idx_applications_job_id
+                ON applications (job_id);
+        )SQL"
+    );  
 }
 
 } // namespace orbit

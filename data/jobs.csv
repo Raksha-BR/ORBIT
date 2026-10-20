@@ -1,0 +1,3 @@
+title,company,location,salary,minimum_years_experience,skills,description,application_url,source_name,external_job_id,original_url
+Software Development Engineer,Example Tech,Bengaluru,15-25 LPA,1,"C++|Python|SQL","Backend development role, building scalable services",https://example.com/apply,Manual,EXAMPLE-001,https://example.com/jobs/001
+Backend Engineer,Sample Systems,Remote,,0,"Python|PostgreSQL","Develop APIs and backend systems",https://example.com/apply2,Manual,EXAMPLE-002,https://example.com/jobs/002
