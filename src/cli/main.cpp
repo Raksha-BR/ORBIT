@@ -352,13 +352,110 @@ int main(int argc, char* argv[]) {
         }
 
         
+        
+        
+
         if (action == "rank") {
+            std::size_t top = 0;
+            int min_score = 0;
+            bool sde_only = false;
+
+            for (int i = 3; i < argc; ++i) {
+                const std::string arg = argv[i];
+
+                if (arg == "--sde-only") {
+                    sde_only = true;
+                } else if (arg == "--top" && i + 1 < argc) {
+                    const std::string value = argv[++i];
+                    std::size_t parsed = 0;
+                    const auto number = std::stoull(value, &parsed);
+
+                    if (parsed != value.size() || number == 0) {
+                        std::cerr << "Error: --top must be a positive integer\n";
+                        return 1;
+                    }
+
+                    top = static_cast<std::size_t>(number);
+                } else if (arg == "--min-score" && i + 1 < argc) {
+                    const std::string value = argv[++i];
+                    std::size_t parsed = 0;
+                    const int number = std::stoi(value, &parsed);
+
+                    if (parsed != value.size() ||
+                        number < 0 || number > 100) {
+                        std::cerr << "Error: --min-score must be from 0 to 100\n";
+                        return 1;
+                    }
+
+                    min_score = number;
+                } else {
+                    std::cerr << "Error: unknown or incomplete rank option: "
+                              << arg << '\n';
+                    std::cerr << "Usage: orbit jobs rank "
+                              << "[--top N] [--min-score N] [--sde-only]\n";
+                    return 1;
+                }
+            }
+
             const auto jobs = search_service.get_all_jobs();
 
             if (jobs.empty()) {
                 std::cout << "No jobs found. Collect or import jobs first.\n";
                 return 0;
             }
+
+            
+            const auto title_contains_any =
+                [](const std::string& title,
+                   const std::vector<std::string>& keywords) {
+                    for (const auto& keyword : keywords) {
+                        if (title.find(keyword) != std::string::npos) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+            const auto is_sde_role = [&title_contains_any](
+    const std::string& raw_title) {
+                const std::string title = lowercase(raw_title);
+
+                // Exclude roles outside the target experience level.
+                if (title_contains_any(title, {
+                        "senior", "sr.", "sr ",
+                        "staff engineer", "principal engineer",
+                        "lead engineer", "tech lead",
+                        "engineering manager", "director",
+                        "vice president", "vp of engineering",
+                        "architect",
+                        "service desk", "help desk",
+                        "technical support", "desktop support",
+                        "sales", "recruiter", "writer",
+                        "marketing", "office assistant",
+                        "content reviewer"
+                    })) {
+                    return false;
+                }
+
+                return title_contains_any(title, {
+                    "software engineer",
+                    "software developer",
+                    "backend engineer",
+                    "back-end engineer",
+                    "backend developer",
+                    "back-end developer",
+                    "full-stack developer",
+                    "full stack developer",
+                    "software development engineer",
+                    "platform engineer",
+                    "systems engineer",
+                    "c++ engineer",
+                    "python engineer",
+                    "sde",
+                    "programmer",
+                    "developer"
+                });
+            };
 
             orbit::JobRelevanceScorer scorer;
 
@@ -368,7 +465,17 @@ int main(int argc, char* argv[]) {
             ranked_jobs.reserve(jobs.size());
 
             for (const auto& job : jobs) {
-                ranked_jobs.emplace_back(job, scorer.score(job));
+                if (sde_only && !is_sde_role(job.title)) {
+                    continue;
+                }
+
+                auto relevance = scorer.score(job);
+
+                if (relevance.score < min_score) {
+                    continue;
+                }
+
+                ranked_jobs.emplace_back(job, std::move(relevance));
             }
 
             std::stable_sort(
@@ -378,6 +485,15 @@ int main(int argc, char* argv[]) {
                     return left.second.score > right.second.score;
                 }
             );
+
+            if (ranked_jobs.empty()) {
+                std::cout << "No jobs matched the requested filters.\n";
+                return 0;
+            }
+
+            if (top > 0 && ranked_jobs.size() > top) {
+                ranked_jobs.resize(top);
+            }
 
             std::cout << "ORBIT Job Relevance Ranking\n";
             std::cout << "===========================\n\n";
@@ -397,14 +513,12 @@ int main(int argc, char* argv[]) {
                     << '\n'
                     << "   Salary: "
                     << (job.salary.has_value()
-                            ? *job.salary
-                            : "Not specified")
+                            ? *job.salary : "Not specified")
                     << '\n'
                     << "   Experience: ";
 
                 if (job.minimum_years_experience.has_value()) {
-                    std::cout
-                        << *job.minimum_years_experience << " year(s)";
+                    std::cout << *job.minimum_years_experience << " year(s)";
                 } else {
                     std::cout << "Not specified";
                 }
@@ -416,18 +530,18 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (!job.application_url.empty()) {
-                    std::cout
-                        << "   Apply: " << job.application_url << '\n';
+                    std::cout << "   Apply: " << job.application_url << '\n';
                 } else if (!job.original_url.empty()) {
-                    std::cout
-                        << "   Apply: " << job.original_url << '\n';
+                    std::cout << "   Apply: " << job.original_url << '\n';
                 }
 
                 std::cout << '\n';
             }
 
+            std::cout << "Showing " << ranked_jobs.size() << " job(s).\n";
             return 0;
         }
+
 
 
         if (action == "search") {
