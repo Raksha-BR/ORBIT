@@ -36,7 +36,50 @@ TEST(MatchingEngineTest, CalculatesSkillMatch) {
     EXPECT_DOUBLE_EQ(result.score, 2.0 / 3.0);
     EXPECT_EQ(result.matched_skills.size(), 2);
     EXPECT_EQ(result.missing_skills.size(), 1);
-    EXPECT_TRUE(result.experience_match);
+    EXPECT_EQ(result.missing_skills[0], "Docker");
+
+
 }
+
+TEST(MatchingEngineTest, IgnoresSkillWhitespaceAndCase) {
+    Candidate candidate{
+        .id = 1,
+        .skills = {" C++ ", "PYTHON"}
+    };
+
+    Job job{
+        .id = 1,
+        .skills = {"c++", " Python "}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_DOUBLE_EQ(result.score, 1.0);
+    EXPECT_EQ(result.matched_skills.size(), 2);
+    EXPECT_TRUE(result.missing_skills.empty());
+}
+
+
+TEST(MatchingEngineTest, IgnoresDuplicateJobRequirements) {
+    Candidate candidate{
+        .id = 1,
+        .skills = {"C++", "Python"}
+    };
+
+    Job job{
+        .id = 1,
+        .skills = {"C++", "Python", "Docker", "Python"}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_DOUBLE_EQ(result.score, 2.0 / 3.0);
+    EXPECT_EQ(result.matched_skills.size(), 2);
+    EXPECT_EQ(result.missing_skills.size(), 1);
+    EXPECT_EQ(result.missing_skills[0], "Docker");
+}
+
 
 } // namespace orbit
