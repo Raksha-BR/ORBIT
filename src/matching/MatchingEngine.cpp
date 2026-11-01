@@ -1,4 +1,3 @@
-
 #include "matching/MatchingEngine.h"
 
 #include <algorithm>
@@ -56,6 +55,7 @@ MatchResult MatchingEngine::match(
 ) const {
     MatchResult result;
 
+    // Normalize candidate skills.
     std::unordered_set<std::string> candidate_skills;
 
     for (const auto& skill : candidate.skills) {
@@ -66,6 +66,7 @@ MatchResult MatchingEngine::match(
         }
     }
 
+    // Process job requirements without duplicates.
     std::unordered_set<std::string> processed_job_skills;
 
     for (const auto& job_skill : job.skills) {
@@ -87,20 +88,29 @@ MatchResult MatchingEngine::match(
         }
     }
 
+    // Calculate skill compatibility score.
     if (!processed_job_skills.empty()) {
         result.score =
             static_cast<double>(result.matched_skills.size()) /
             static_cast<double>(processed_job_skills.size());
     }
 
-    if (job.minimum_years_experience.has_value() &&
-        candidate.years_of_experience.has_value()) {
-
-        result.experience_match =
-            candidate.years_of_experience.value() >=
-            job.minimum_years_experience.value();
+    // Evaluate experience compatibility independently.
+    if (!job.minimum_years_experience.has_value()) {
+        result.experience_status =
+            ExperienceMatchStatus::NotRequired;
+    } else if (!candidate.years_of_experience.has_value()) {
+        result.experience_status =
+            ExperienceMatchStatus::Unknown;
+    } else if (
+        candidate.years_of_experience.value() >=
+        job.minimum_years_experience.value()
+    ) {
+        result.experience_status =
+            ExperienceMatchStatus::Met;
     } else {
-        result.experience_match = true;
+        result.experience_status =
+            ExperienceMatchStatus::NotMet;
     }
 
     return result;

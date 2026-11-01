@@ -30,15 +30,12 @@ TEST(MatchingEngineTest, CalculatesSkillMatch) {
     };
 
     MatchingEngine engine;
-
     const auto result = engine.match(candidate, job);
 
     EXPECT_DOUBLE_EQ(result.score, 2.0 / 3.0);
     EXPECT_EQ(result.matched_skills.size(), 2);
     EXPECT_EQ(result.missing_skills.size(), 1);
     EXPECT_EQ(result.missing_skills[0], "Docker");
-
-
 }
 
 TEST(MatchingEngineTest, IgnoresSkillWhitespaceAndCase) {
@@ -60,7 +57,6 @@ TEST(MatchingEngineTest, IgnoresSkillWhitespaceAndCase) {
     EXPECT_TRUE(result.missing_skills.empty());
 }
 
-
 TEST(MatchingEngineTest, IgnoresDuplicateJobRequirements) {
     Candidate candidate{
         .id = 1,
@@ -81,5 +77,92 @@ TEST(MatchingEngineTest, IgnoresDuplicateJobRequirements) {
     EXPECT_EQ(result.missing_skills[0], "Docker");
 }
 
+TEST(MatchingEngineTest, IdentifiesExperienceRequirementAsMet) {
+    Candidate candidate{
+        .id = 1,
+        .years_of_experience = 7
+    };
+
+    Job job{
+        .id = 1,
+        .minimum_years_experience = 5,
+        .skills = {"C++"}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_EQ(
+        result.experience_status,
+        ExperienceMatchStatus::Met
+    );
+}
+
+TEST(MatchingEngineTest, IdentifiesExperienceRequirementAsNotMet) {
+    Candidate candidate{
+        .id = 1,
+        .skills = {"C++"},
+        .years_of_experience = 2
+    };
+
+    Job job{
+        .id = 1,
+        .minimum_years_experience = 5,
+        .skills = {"C++"}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_EQ(
+        result.experience_status,
+        ExperienceMatchStatus::NotMet
+    );
+
+    // Skill score remains independent of experience.
+    EXPECT_DOUBLE_EQ(result.score, 1.0);
+}
+
+TEST(MatchingEngineTest, IdentifiesUnknownCandidateExperience) {
+    Candidate candidate{
+        .id = 1,
+        .years_of_experience = std::nullopt
+    };
+
+    Job job{
+        .id = 1,
+        .minimum_years_experience = 5,
+        .skills = {"C++"}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_EQ(
+        result.experience_status,
+        ExperienceMatchStatus::Unknown
+    );
+}
+
+TEST(MatchingEngineTest, IdentifiesExperienceAsNotRequired) {
+    Candidate candidate{
+        .id = 1,
+        .years_of_experience = 2
+    };
+
+    Job job{
+        .id = 1,
+        .minimum_years_experience = std::nullopt,
+        .skills = {"C++"}
+    };
+
+    MatchingEngine engine;
+    const auto result = engine.match(candidate, job);
+
+    EXPECT_EQ(
+        result.experience_status,
+        ExperienceMatchStatus::NotRequired
+    );
+}
 
 } // namespace orbit
