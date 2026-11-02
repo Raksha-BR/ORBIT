@@ -17,6 +17,10 @@ public:
         const CandidateFact& fact
     ) override;
 
+    void replace(
+    const CandidateFact& fact
+) override;
+
     std::optional<CandidateFact> find(
         const std::string& key
     ) const override;

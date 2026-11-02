@@ -9,6 +9,12 @@
 #include "jobs/MockJobSource.h"
 #include "jobs/RemotiveJobSource.h"
 #include "jobs/JobRelevanceScorer.h"
+#include "candidate/CandidateProfileLoader.h"
+#include "matching/MatchingEngine.h"
+#include "matching/EligibilityEvaluator.h"
+#include "candidate/CandidateFact.h"
+#include "storage/postgres/PostgresCandidateFactRepository.h"
+
 
 #include <algorithm>
 #include <cctype>
@@ -125,15 +131,20 @@ void print_usage() {
         << "  orbit jobs list\n"
         << "  orbit jobs search --keyword <keyword>\n"
         << "  orbit jobs show --id <job_id>\n"
-        << "  orbit jobs import --file <csv_file>\n\n"
+        << "  orbit jobs import --file <csv_file>\n"
+        << "  orbit jobs profile\n"
+                << "  orbit jobs profile set <field> <value>\n"
+        << "  orbit jobs profile add-skill <skill>\n"
+        << "  orbit jobs profile add-role <role>\n"
+        << "  orbit jobs profile add-location <location>\n"
+        << "  orbit jobs collect --source mock\n"
+        << "  orbit jobs collect --source remotive\n"
+        << "  orbit jobs rank\n\n"
         << "CSV columns:\n"
         << "  title,company,location,salary,"
         << "minimum_years_experience,skills,description,"
         << "application_url,source_name,external_job_id,original_url\n"
-        << "Use | between skills, for example: C++|Python|SQL\n"
-        << "  orbit jobs collect --source mock\n"
-        << "  orbit jobs collect --source remotive\n"
-        << "  orbit jobs rank\n";
+        << "Use | between skills, for example: C++|Python|SQL\n";
 }
 
 void print_job(const orbit::Job& job) {
@@ -320,6 +331,11 @@ int main(int argc, char* argv[]) {
 
         orbit::PostgresSchema::initialize(connection);
         orbit::PostgresJobRepository repository(connection);
+        orbit::PostgresCandidateFactRepository candidate_repository(
+    connection
+);
+
+orbit::CandidateProfileLoader profile_loader;
         orbit::JobDeduplicator deduplicator;
         orbit::JobSearchService search_service(
             repository,
@@ -351,9 +367,151 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        
-        
-        
+        if (action == "profile") {
+
+    // Display the saved candidate profile.
+    if (argc == 3) {
+        const auto candidate =
+            profile_loader.load(candidate_repository);
+
+        std::cout << "Candidate Profile\n";
+        std::cout << "-----------------\n";
+        std::cout << "Name: " << candidate.name << '\n';
+        std::cout << "Email: " << candidate.email << '\n';
+        std::cout << "Location: " << candidate.location << '\n';
+
+        std::cout << "Experience: ";
+        if (candidate.years_of_experience.has_value()) {
+            std::cout << *candidate.years_of_experience << " years\n";
+        } else {
+            std::cout << "Not specified\n";
+        }
+
+        std::cout << "Expected salary: ";
+        if (candidate.expected_salary.has_value()) {
+            std::cout << *candidate.expected_salary << '\n';
+        } else {
+            std::cout << "Not specified\n";
+        }
+
+        std::cout << "Skills:\n";
+        for (const auto& skill : candidate.skills) {
+            std::cout << "  - " << skill << '\n';
+        }
+
+        std::cout << "Preferred roles:\n";
+        for (const auto& role : candidate.preferred_roles) {
+            std::cout << "  - " << role << '\n';
+        }
+
+        std::cout << "Preferred locations:\n";
+        for (const auto& location : candidate.preferred_locations) {
+            std::cout << "  - " << location << '\n';
+        }
+
+        return 0;
+    }
+
+    const std::string profile_action = argv[3];
+
+    // Update a single-value profile field.
+    if (profile_action == "set") {
+        if (argc != 6) {
+            std::cerr
+                << "Usage: orbit jobs profile set <field> <value>\n";
+            return 1;
+        }
+
+        const std::string field = argv[4];
+        const std::string value = argv[5];
+
+        std::string key;
+
+        if (field == "name") {
+            key = "profile.name";
+        } else if (field == "email") {
+            key = "profile.email";
+        } else if (field == "location") {
+            key = "profile.location";
+        } else if (field == "experience") {
+            key = "experience.years";
+        } else if (field == "salary") {
+            key = "preference.expected_salary";
+        } else {
+            std::cerr << "Unknown profile field: " << field << '\n';
+            return 1;
+        }
+
+        if (value.empty()) {
+            std::cerr << "Error: value cannot be empty\n";
+            return 1;
+        }
+
+        if (field == "experience" || field == "salary") {
+            std::size_t parsed = 0;
+            const int number = std::stoi(value, &parsed);
+
+            if (parsed != value.size() || number < 0) {
+                std::cerr
+                    << "Error: enter a non-negative integer\n";
+                return 1;
+            }
+        }
+
+        candidate_repository.replace({
+            key,
+            value,
+            orbit::FactConfidence::Verified,
+            {}
+        });
+
+        std::cout << "Profile updated: " << field << '\n';
+        return 0;
+    }
+
+    // Add a multi-value profile field.
+    if (profile_action == "add-skill" ||
+        profile_action == "add-role" ||
+        profile_action == "add-location") {
+
+        if (argc != 5) {
+            std::cerr
+                << "Usage: orbit jobs profile "
+                << profile_action << " <value>\n";
+            return 1;
+        }
+
+        const std::string value = argv[4];
+
+        if (value.empty()) {
+            std::cerr << "Error: value cannot be empty\n";
+            return 1;
+        }
+
+        std::string key;
+
+        if (profile_action == "add-skill") {
+            key = "skill";
+        } else if (profile_action == "add-role") {
+            key = "preference.role";
+        } else {
+            key = "preference.location";
+        }
+
+        candidate_repository.save({
+            key,
+            value,
+            orbit::FactConfidence::Verified,
+            {}
+        });
+
+        std::cout << "Added " << value << " to profile.\n";
+        return 0;
+    }
+
+    std::cerr << "Unknown profile command: " << profile_action << '\n';
+    return 1;
+}
 
         if (action == "rank") {
             std::size_t top = 0;
@@ -458,90 +616,169 @@ int main(int argc, char* argv[]) {
             };
 
             orbit::JobRelevanceScorer scorer;
+orbit::MatchingEngine matching_engine;
+orbit::EligibilityEvaluator eligibility_evaluator;
 
-            std::vector<std::pair<orbit::Job, orbit::JobRelevanceScore>>
-                ranked_jobs;
+const auto candidate =
+    profile_loader.load(candidate_repository);
 
-            ranked_jobs.reserve(jobs.size());
+struct RankedJob {
+    orbit::Job job;
+    orbit::JobRelevanceScore relevance;
+    orbit::MatchResult compatibility;
+    orbit::EligibilityResult eligibility;
+};
 
-            for (const auto& job : jobs) {
-                if (sde_only && !is_sde_role(job.title)) {
-                    continue;
-                }
+std::vector<RankedJob> ranked_jobs;
+ranked_jobs.reserve(jobs.size());
 
-                auto relevance = scorer.score(job);
+for (const auto& job : jobs) {
+    if (sde_only && !is_sde_role(job.title)) {
+        continue;
+    }
 
-                if (relevance.score < min_score) {
-                    continue;
-                }
+    auto relevance = scorer.score(job);
 
-                ranked_jobs.emplace_back(job, std::move(relevance));
-            }
+    if (relevance.score < min_score) {
+        continue;
+    }
 
-            std::stable_sort(
-                ranked_jobs.begin(),
-                ranked_jobs.end(),
-                [](const auto& left, const auto& right) {
-                    return left.second.score > right.second.score;
-                }
-            );
+    auto compatibility =
+        matching_engine.match(candidate, job);
 
-            if (ranked_jobs.empty()) {
-                std::cout << "No jobs matched the requested filters.\n";
-                return 0;
-            }
+    auto eligibility =
+        eligibility_evaluator.evaluate(compatibility);
 
-            if (top > 0 && ranked_jobs.size() > top) {
-                ranked_jobs.resize(top);
-            }
+    ranked_jobs.push_back({
+        job,
+        std::move(relevance),
+        std::move(compatibility),
+        std::move(eligibility)
+    });
+}
 
-            std::cout << "ORBIT Job Relevance Ranking\n";
-            std::cout << "===========================\n\n";
-
-            for (std::size_t i = 0; i < ranked_jobs.size(); ++i) {
-                const auto& job = ranked_jobs[i].first;
-                const auto& relevance = ranked_jobs[i].second;
-
-                std::cout
-                    << (i + 1) << ". [" << relevance.score << "/100] "
-                    << job.title << '\n'
-                    << "   Company: "
-                    << (job.company.empty() ? "Unknown" : job.company)
-                    << '\n'
-                    << "   Location: "
-                    << (job.location.empty() ? "Unknown" : job.location)
-                    << '\n'
-                    << "   Salary: "
-                    << (job.salary.has_value()
-                            ? *job.salary : "Not specified")
-                    << '\n'
-                    << "   Experience: ";
-
-                if (job.minimum_years_experience.has_value()) {
-                    std::cout << *job.minimum_years_experience << " year(s)";
-                } else {
-                    std::cout << "Not specified";
-                }
-
-                std::cout << "\n   Reasons:\n";
-
-                for (const auto& reason : relevance.reasons) {
-                    std::cout << "     - " << reason << '\n';
-                }
-
-                if (!job.application_url.empty()) {
-                    std::cout << "   Apply: " << job.application_url << '\n';
-                } else if (!job.original_url.empty()) {
-                    std::cout << "   Apply: " << job.original_url << '\n';
-                }
-
-                std::cout << '\n';
-            }
-
-            std::cout << "Showing " << ranked_jobs.size() << " job(s).\n";
-            return 0;
+// Sort by relevance first, skill compatibility second.
+std::stable_sort(
+    ranked_jobs.begin(),
+    ranked_jobs.end(),
+    [](const RankedJob& left, const RankedJob& right) {
+        if (left.relevance.score != right.relevance.score) {
+            return left.relevance.score > right.relevance.score;
         }
 
+        return left.compatibility.score >
+               right.compatibility.score;
+    }
+);
+
+if (ranked_jobs.empty()) {
+    std::cout << "No jobs matched the requested filters.\n";
+    return 0;
+}
+
+if (top > 0 && ranked_jobs.size() > top) {
+    ranked_jobs.resize(top);
+}
+
+std::cout << "ORBIT Candidate-Aware Job Ranking\n";
+std::cout << "==================================\n\n";
+
+for (std::size_t i = 0; i < ranked_jobs.size(); ++i) {
+    const auto& entry = ranked_jobs[i];
+    const auto& job = entry.job;
+    const auto& match = entry.compatibility;
+    const auto& eligibility = entry.eligibility;
+
+    std::cout
+        << (i + 1) << ". " << job.title << '\n'
+        << "   Company: "
+        << (job.company.empty() ? "Unknown" : job.company)
+        << '\n'
+        << "   Location: "
+        << (job.location.empty() ? "Unknown" : job.location)
+        << '\n'
+        << "   Relevance: "
+        << entry.relevance.score << "/100\n"
+        << "   Skill compatibility: "
+        << static_cast<int>(match.score * 100.0 + 0.5)
+        << "%\n"
+        << "   Experience: ";
+
+    switch (match.experience_status) {
+        case orbit::ExperienceMatchStatus::Met:
+            std::cout << "Met";
+            break;
+
+        case orbit::ExperienceMatchStatus::NotMet:
+            std::cout << "Not Met";
+            break;
+
+        case orbit::ExperienceMatchStatus::Unknown:
+            std::cout << "Unknown";
+            break;
+
+        case orbit::ExperienceMatchStatus::NotRequired:
+            std::cout << "Not Required";
+            break;
+    }
+
+    std::cout << "\n   Eligibility: ";
+
+    switch (eligibility.status) {
+        case orbit::EligibilityStatus::Qualified:
+            std::cout << "Qualified";
+            break;
+
+        case orbit::EligibilityStatus::NotQualified:
+            std::cout << "Not Qualified";
+            break;
+
+        case orbit::EligibilityStatus::NeedsReview:
+            std::cout << "Needs Review";
+            break;
+    }
+
+    std::cout << "\n   Matched skills: ";
+
+    if (match.matched_skills.empty()) {
+        std::cout << "None";
+    } else {
+        for (const auto& skill : match.matched_skills) {
+            std::cout << skill << " ";
+        }
+    }
+
+    std::cout << "\n   Missing skills: ";
+
+    if (match.missing_skills.empty()) {
+        std::cout << "None";
+    } else {
+        for (const auto& skill : match.missing_skills) {
+            std::cout << skill << " ";
+        }
+    }
+
+    std::cout << "\n   Reasons:\n";
+
+    for (const auto& reason : entry.relevance.reasons) {
+        std::cout << "     - " << reason << '\n';
+    }
+
+    for (const auto& reason : eligibility.reasons) {
+        std::cout << "     - " << reason << '\n';
+    }
+
+    if (!job.application_url.empty()) {
+        std::cout << "   Apply: " << job.application_url << '\n';
+    } else if (!job.original_url.empty()) {
+        std::cout << "   Apply: " << job.original_url << '\n';
+    }
+
+    std::cout << '\n';
+}
+
+std::cout << "Showing " << ranked_jobs.size() << " job(s).\n";
+return 0;
 
 
         if (action == "search") {

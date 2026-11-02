@@ -44,6 +44,8 @@ add_library(orbit_core
     src/jobs/MockJobSource.cpp
     src/jobs/RemotiveJobSource.cpp
     src/jobs/JobRelevanceScorer.cpp
+    src/matching/EligibilityEvaluator.cpp
+    src/candidate/CandidateProfileLoader.cpp
 )
 
 target_include_directories(orbit_core
@@ -78,6 +80,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
+include(GoogleTest)
+
 # ============================================================
 # Core Tests
 # ============================================================
@@ -100,9 +104,24 @@ target_link_libraries(orbit_core_tests
 
 add_executable(orbit_matching_tests
     tests/matching/MatchingEngineTest.cpp
+    tests/matching/EligibilityEvaluatorTest.cpp
 )
 
 target_link_libraries(orbit_matching_tests
+    PRIVATE
+        orbit_core
+        GTest::gtest_main
+)
+
+# ============================================================
+# Candidate Profile Tests
+# ============================================================
+
+add_executable(orbit_candidate_profile_tests
+    tests/candidate/CandidateProfileLoaderTest.cpp
+)
+
+target_link_libraries(orbit_candidate_profile_tests
     PRIVATE
         orbit_core
         GTest::gtest_main
@@ -142,11 +161,11 @@ target_link_libraries(orbit_requirement_tests
 # Candidate Intelligence Tests
 # ============================================================
 
-add_executable(orbit_candidate_tests
+add_executable(orbit_candidate_fact_tests
     tests/candidate/CandidateFactStoreTest.cpp
 )
 
-target_link_libraries(orbit_candidate_tests
+target_link_libraries(orbit_candidate_fact_tests
     PRIVATE
         orbit_core
         GTest::gtest_main
@@ -200,13 +219,13 @@ target_link_libraries(orbit_postgres_tests
 # Test Discovery
 # ============================================================
 
-include(GoogleTest)
 
 gtest_discover_tests(orbit_core_tests)
 gtest_discover_tests(orbit_matching_tests)
 gtest_discover_tests(orbit_job_tests)
 gtest_discover_tests(orbit_requirement_tests)
-gtest_discover_tests(orbit_candidate_tests)
 gtest_discover_tests(orbit_answer_tests)
 gtest_discover_tests(orbit_storage_tests)
 gtest_discover_tests(orbit_postgres_tests)
+gtest_discover_tests(orbit_candidate_profile_tests)
+gtest_discover_tests(orbit_candidate_fact_tests)

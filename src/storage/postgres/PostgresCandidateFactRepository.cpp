@@ -53,6 +53,30 @@ void PostgresCandidateFactRepository::save(
     );
 }
 
+void PostgresCandidateFactRepository::replace(
+    const CandidateFact& fact
+) {
+    connection_.execute(
+        R"SQL(
+            WITH deleted AS (
+                DELETE FROM candidate_facts
+                WHERE fact_key = $1
+            )
+            INSERT INTO candidate_facts (
+                fact_key,
+                fact_value,
+                confidence
+            )
+            VALUES ($1, $2, $3)
+        )SQL",
+        {
+            fact.key,
+            fact.value,
+            confidence_to_string(fact.confidence)
+        }
+    );
+}
+
 std::optional<CandidateFact>
 PostgresCandidateFactRepository::find(
     const std::string& key

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-
 #include "candidate/CandidateFactStore.h"
+#include "storage/InMemoryCandidateFactRepository.h"
 
 namespace orbit {
 
@@ -61,6 +61,54 @@ TEST(CandidateFactStoreTest, ReportsExistingFact) {
     EXPECT_TRUE(
         store.has_fact("skill")
     );
+}
+TEST(CandidateFactRepositoryTest, ReplacesExistingFact) {
+    InMemoryCandidateFactRepository repository;
+
+    repository.save({
+        .key = "profile.location",
+        .value = "Mysuru",
+        .confidence = FactConfidence::Verified
+    });
+
+    repository.replace({
+        .key = "profile.location",
+        .value = "Bengaluru",
+        .confidence = FactConfidence::Verified
+    });
+
+    const auto facts = repository.find_all();
+
+    ASSERT_EQ(facts.size(), 1);
+    EXPECT_EQ(facts[0].value, "Bengaluru");
+}
+
+TEST(CandidateFactRepositoryTest, PreservesOtherFactsWhenReplacing) {
+    InMemoryCandidateFactRepository repository;
+
+    repository.save({
+        .key = "skill",
+        .value = "C++",
+        .confidence = FactConfidence::Verified
+    });
+
+    repository.save({
+        .key = "profile.location",
+        .value = "Mysuru",
+        .confidence = FactConfidence::Verified
+    });
+
+    repository.replace({
+        .key = "profile.location",
+        .value = "Bengaluru",
+        .confidence = FactConfidence::Verified
+    });
+
+    const auto facts = repository.find_all();
+
+    ASSERT_EQ(facts.size(), 2);
+    EXPECT_EQ(facts[0].value, "C++");
+    EXPECT_EQ(facts[1].value, "Bengaluru");
 }
 
 } // namespace orbit

@@ -16,6 +16,10 @@ public:
         const CandidateFact& fact
     ) = 0;
 
+    virtual void replace(
+    const CandidateFact& fact
+) = 0;
+
     virtual std::optional<CandidateFact> find(
         const std::string& key
     ) const = 0;
